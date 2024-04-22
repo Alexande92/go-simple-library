@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/Alexande92/go-simple-library/internal/handlers"
+	"github.com/Alexande92/go-simple-library/internal/http/handlers"
 	"log"
 	"net/http"
 )

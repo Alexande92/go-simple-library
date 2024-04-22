@@ -1,10 +1,12 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 )
 
 func CheckHealth(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "HEALTHY")
+	headers := w.Header()
+	headers.Add("Body", "Healthy")
+
+	w.Write([]byte("Healthy"))
 }

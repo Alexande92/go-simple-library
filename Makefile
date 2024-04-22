@@ -1,8 +1,8 @@
 .PHONY: build
 build:
-	@go build -o ./dist/ ./cmd/main.go
+	@go build -o ./dist/ ./cmd/library/main.go
 
-.PHONY: build
+.PHONY: run
 run: build
 	@./dist/main
 

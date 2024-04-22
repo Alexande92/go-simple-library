@@ -5,16 +5,16 @@ Simple project for managing your books
 
 ## Actions
 
-To run, build or test this project provided Make file
+To run, build or test this project provided Makefile
 
-Command **run** creates binary file in `dist` folder and run it
+Command **run** creates binary file in `dist` folder and runs it
  ```
     make run
  ```
 
 Command **build** - just makes a binary
  ```
-    make run
+    make run -> make build
  ```
 
 Command **test** - should run tests from all files with `.test` in name 
