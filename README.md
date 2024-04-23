@@ -8,13 +8,13 @@ Simple project for managing your books
 To run, build or test this project provided Makefile
 
 Command **run** creates binary file in `dist` folder and runs it
- ```
+ ```bash
     make run
  ```
 
 Command **build** - just makes a binary
  ```
-    make run -> make build
+    make build
  ```
 
 Command **test** - should run tests from all files with `.test` in name 

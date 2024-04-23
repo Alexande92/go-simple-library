@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/Alexande92/go-simple-library/internal/http/handlers"
+	"github.com/Alexande92/go-simple-library/internal/handlers"
 	"log"
 	"net/http"
 )
@@ -14,9 +14,6 @@ func main() {
 
 	srv := &http.Server{
 		Addr: port,
-		// TODO: ask ho to move router to separate folder
-		// TODO: and avoid pattern matching in main
-		// TODO: Handler: router,
 	}
 
 	http.HandleFunc("/api/v1/health", handlers.CheckHealth)
