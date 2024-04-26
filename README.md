@@ -13,7 +13,7 @@ Command **run** creates binary file in `dist` folder and runs it
  ```
 
 Command **build** - just makes a binary
- ```
+ ```bash
     make build
  ```
 
