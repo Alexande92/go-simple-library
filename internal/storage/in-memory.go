@@ -1,6 +1,6 @@
 package storage
 
-// TODO make this struct not only book related
+// TODO make this storage not only book related, if needed
 
 type Book struct {
 	Id              int64  `json:"id"`
