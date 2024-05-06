@@ -2,41 +2,49 @@ package storage
 
 // TODO make this storage not only book related, if needed
 
-type Book struct {
-	Id              int64  `json:"id"`
-	Author          string `json:"author"`
-	Title           string `json:"title"`
-	PublicationDate string `json:"publication-date"`
-	Publisher       string `json:"publisher,omitempty"`
-	Edition         int    `json:"edition,omitempty"`
-	Location        string `json:"location,omitempty"`
+//type Entity Book | Book2
+
+type Entity interface {
+	getId() int64
+	setId(s Table) int64
 }
 
-var BookStorage = map[int]Book{}
+type Storage map[string]Table
+type Table map[int]Entity
 
-func (b *Book) Save() {
-	b.Id = int64(len(BookStorage) + 1)
-	BookStorage[len(BookStorage)+1] = *b
+//var BookStorage = map[int]Book{}
+
+func InitStorage() *Storage {
+	return &Storage{"book": {}}
 }
 
-func GetAll() []Book {
-	books := make([]Book, 0, len(BookStorage))
+func FromTable(s Storage, name string) Table {
+	return s[name]
+}
 
-	for _, v := range BookStorage {
-		books = append(books, v)
+func (s Table) Save(e Entity) {
+	e.setId(s)
+	(s)[len(s)+1] = e
+}
+
+func (s Table) GetAll() []Entity {
+	entities := make([]Entity, 0, len(s))
+
+	for _, v := range s {
+		entities = append(entities, v)
 	}
-	return books
+	return entities
 }
 
-func GetById(id int64) (Book, bool) {
-	book, ok := BookStorage[int(id)]
-	return book, ok
+func (s Table) GetById(id int64) (Entity, bool) {
+	entity, ok := s[int(id)].(Entity)
+	return entity, ok
 }
 
-func Delete(id int64) {
-	delete(BookStorage, int(id))
+func (s Table) Delete(id int64) {
+	delete(s, int(id))
 }
 
-func (b *Book) Update() {
-	BookStorage[int(b.Id)] = *b
+func (s Table) Update(e Entity) {
+	s[int(e.getId())] = e
 }
