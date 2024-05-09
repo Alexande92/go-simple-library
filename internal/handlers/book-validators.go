@@ -1,47 +1,94 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	"github.com/Alexande92/go-simple-library/internal/storage"
 )
 
-type ValidationErrorRes struct {
-	Code    int               `json:"code,omitempty"`
-	Message string            `json:"message,omitempty"`
-	Errors  map[string]string `json:"errors,omitempty"`
+type ValidationErrors struct {
+	Code    int        `json:"code,omitempty"`
+	Message string     `json:"message,omitempty"`
+	Errors  []ErrorRes `json:"errors,omitempty"`
 }
 
-func ValidateBookData(book storage.Book) map[string]string {
-	errList := make(map[string]string)
+type ErrorRes struct {
+	Field  string
+	Reason string
+}
 
-	if book.Author == "" {
-		errList["Author"] = "missing required field"
-	} else if len(book.Author) > 255 {
-		errList["Author"] = "field more than 255 chars"
-	}
+func ValidateBookData(book storage.Book) []ErrorRes {
+	errList := make([]ErrorRes, 0)
 
-	if book.PublicationDate == "" {
-		errList["PublicationDate"] = "missing required field"
-	} else if len(book.PublicationDate) != 7 {
-		errList["PublicationDate"] = "field Date should contain 7 chars"
-	}
+	err := validateEmptiness(book.Author)
+	errList = addValidationError(errList, err)
 
-	if book.Title == "" {
-		errList["Title"] = "missing required field"
-	} else if len(book.Title) > 128 {
-		errList["Title"] = "field more than 128 chars"
-	}
+	err = validateLength(len(book.Author), -1, 255)
+	errList = addValidationError(errList, err)
 
-	if len(book.Publisher) < 1 || len(book.Publisher) > 255 {
-		errList["Publisher"] = "field should contains from 1 to 255 chars"
-	}
+	err = validateEmptiness(book.PublicationDate)
+	errList = addValidationError(errList, err)
 
-	if len(book.Location) < 1 || len(book.Location) > 255 {
-		errList["Publisher"] = "field should contains from 1 to 255 chars"
-	}
+	err = isEqual(len(book.PublicationDate), 7)
+	errList = addValidationError(errList, err)
 
-	if book.Edition < 1 {
-		errList["Publisher"] = "field should be at least equal to 1"
-	}
+	err = validateEmptiness(book.Title)
+	errList = addValidationError(errList, err)
+
+	err = validateLength(len(book.Title), -1, 128)
+	errList = addValidationError(errList, err)
+
+	err = validateLength(len(book.Publisher), 1, 255)
+	errList = addValidationError(errList, err)
+
+	err = validateLength(len(book.Location), 1, 255)
+	errList = addValidationError(errList, err)
+
+	err = validateLength(book.Edition, 1, -1)
+	errList = addValidationError(errList, err)
 
 	return errList
+}
+
+func addValidationError(errList []ErrorRes, err error) []ErrorRes {
+	errList = append(errList, ErrorRes{
+		Field:  "author",
+		Reason: err.Error(),
+	})
+
+	return errList
+}
+
+func isEqual[T string | int](val T, toCompare T) error {
+	if val != toCompare {
+		err := fmt.Errorf("field should be equal to %s chars", toCompare)
+
+		return err
+	}
+
+	return nil
+}
+
+func validateEmptiness(val string) error {
+	if len(val) == 0 {
+		return errors.New("missing required field")
+	}
+
+	return nil
+}
+
+func validateLength(val int, min int, max int) error {
+	if min != -1 {
+		if val < min {
+			return fmt.Errorf("field should be contain more than %d chars", min)
+		}
+	}
+
+	if min != -1 {
+		if val > min {
+			return fmt.Errorf("field should be contain less than %d chars", max)
+		}
+	}
+
+	return nil
 }
