@@ -75,6 +75,10 @@ func (h *BaseHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
 func (h *BaseHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	fmt.Println("==============")
+	fmt.Println(bookId)
+	fmt.Println(r.URL)
+	fmt.Println(r.RequestURI)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
