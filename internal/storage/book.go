@@ -1,7 +1,7 @@
 package storage
 
 type Book struct {
-	Id              int64  `json:"id"`
+	Id              int    `json:"id"`
 	Author          string `json:"author"`
 	Title           string `json:"title"`
 	PublicationDate string `json:"publication-date"`
@@ -10,12 +10,14 @@ type Book struct {
 	Location        string `json:"location,omitempty"`
 }
 
-func (b *Book) getId() int64 {
+func (b *Book) getId() int {
 	return b.Id
 }
 
-func (b *Book) setId(s Table) int64 {
-	b.Id = int64(len(s) + 1)
+func (b *Book) setId(s Storage) int {
+	lastId := s.lastId + 1
+
+	b.Id = lastId
 	return b.Id
 }
 
