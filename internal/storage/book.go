@@ -1,10 +1,5 @@
 package storage
 
-import (
-	"math/rand"
-	"time"
-)
-
 type Book struct {
 	Id              int    `json:"id"`
 	Author          string `json:"author"`
@@ -19,10 +14,9 @@ func (b *Book) getId() int {
 	return b.Id
 }
 
-func (b *Book) setId(s Table) int {
-	seed := rand.NewSource(time.Now().UnixNano())
-	randomizer := rand.New(seed)
+func (b *Book) setId(s Storage) int {
+	lastId := s.lastId + 1
 
-	b.Id = randomizer.Intn(1000)
+	b.Id = lastId
 	return b.Id
 }

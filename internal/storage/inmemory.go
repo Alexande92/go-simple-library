@@ -6,47 +6,47 @@ import "errors"
 
 type Entity interface {
 	getId() int
-	setId(s Table) int
+	setId(s Storage) int
 }
 
-type Storage map[string]Table
-type Table map[int]Entity
+var ErrNotFound = errors.New("entity not found")
 
-func InitStorage() Storage {
-	return Storage{"book": {}}
+type Storage struct {
+	books  map[int]Book
+	lastId int
 }
 
-func FromTable(s Storage, name string) Table {
-	return s[name]
+func NewStorage() Storage {
+	return Storage{}
 }
 
-func (s Table) Save(e Entity) {
+func (s Storage) Save(e Book) {
 	id := e.setId(s)
-	(s)[id] = e
+	s.books[id] = e
 }
 
-func (s Table) GetAll() []Entity {
-	entities := make([]Entity, 0, len(s))
+func (s Storage) GetAll() []Book {
+	books := make([]Book, 0, len(s.books))
 
-	for _, v := range s {
-		entities = append(entities, v)
+	for _, v := range s.books {
+		books = append(books, v)
 	}
-	return entities
+	return books
 }
 
-func (s Table) GetById(id int) (Entity, error) {
-	entity, ok := s[id].(Entity)
+func (s Storage) GetById(id int) (Book, error) {
+	book, ok := s.books[id]
 
 	if !ok {
-		return nil, errors.New("book not found")
+		return Book{}, ErrNotFound
 	}
-	return entity, nil
+	return book, nil
 }
 
-func (s Table) Delete(id int) {
-	delete(s, id)
+func (s Storage) Delete(id int) {
+	delete(s.books, id)
 }
 
-func (s Table) Update(e Entity) {
-	s[e.getId()] = e
+func (s Storage) Update(e Book) {
+	s.books[e.Id] = e
 }

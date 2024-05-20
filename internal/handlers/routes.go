@@ -6,7 +6,7 @@ import (
 )
 
 func RegisterRoutes(srv *http.ServeMux) {
-	db := storage.InitStorage()
+	db := storage.NewStorage()
 	h := NewBookHandler(db)
 
 	srv.HandleFunc("GET /api/v1/health", CheckHealth)

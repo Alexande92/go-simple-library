@@ -7,9 +7,7 @@ import (
 )
 
 type ValidationErrors struct {
-	Code    int        `json:"code,omitempty"`
-	Message string     `json:"message,omitempty"`
-	Errors  []ErrorRes `json:"errors,omitempty"`
+	Errors []ErrorRes `json:"errors,omitempty"`
 }
 
 type ErrorRes struct {
@@ -17,7 +15,7 @@ type ErrorRes struct {
 	Reason string
 }
 
-func ValidateBookData(book storage.Book) []ErrorRes {
+func ValidateBook(book storage.Book) []ErrorRes {
 	errList := make([]ErrorRes, 0)
 
 	err := validateEmptiness(book.Author)
