@@ -12,13 +12,11 @@ const port = ":8080"
 func main() {
 	fmt.Printf("Starting server at port %s\n", port)
 
-	srv := &http.Server{
-		Addr: port,
-	}
+	srv := http.NewServeMux()
 
-	http.HandleFunc("/api/v1/health", handlers.CheckHealth)
+	handlers.RegisterRoutes(srv)
 
-	if err := srv.ListenAndServe(); err != nil {
+	if err := http.ListenAndServe(port, srv); err != nil {
 		log.Fatal(err)
 	}
 }
