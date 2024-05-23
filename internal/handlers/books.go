@@ -31,8 +31,6 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode("Internal error: " + err.Error())
 		return
 	}
-
-	json.NewEncoder(w).Encode(books)
 }
 
 func (h *BookHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
@@ -67,10 +65,6 @@ func (h *BookHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
 func (h *BookHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	fmt.Println("==============")
-	fmt.Println(bookId)
-	fmt.Println(r.URL)
-	fmt.Println(r.RequestURI)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -141,6 +135,6 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	book.Id = int(bookId)
 
 	h.db.Update(book)
-
+	json.NewEncoder(w).Encode(book)
 	w.WriteHeader(http.StatusOK)
 }

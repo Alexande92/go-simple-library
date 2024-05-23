@@ -11,55 +11,57 @@ type ValidationErrors struct {
 }
 
 type ErrorRes struct {
-	Field  string
-	Reason string
+	Field  string `json:"field,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 func ValidateBook(book storage.Book) []ErrorRes {
 	errList := make([]ErrorRes, 0)
 
 	err := validateEmptiness(book.Author)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "author", err)
 
 	err = validateLength(len(book.Author), -1, 255)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "author", err)
 
 	err = validateEmptiness(book.PublicationDate)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "publicationDate", err)
 
 	err = isEqual(len(book.PublicationDate), 7)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "publicationDate", err)
 
 	err = validateEmptiness(book.Title)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "title", err)
 
 	err = validateLength(len(book.Title), -1, 128)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "title", err)
 
 	err = validateLength(len(book.Publisher), 1, 255)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "publisher", err)
 
 	err = validateLength(len(book.Location), 1, 255)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "location", err)
 
 	err = validateLength(book.Edition, 1, -1)
-	errList = addValidationError(errList, err)
+	errList = addValidationError(errList, "edition", err)
 
 	return errList
 }
 
-func addValidationError(errList []ErrorRes, err error) []ErrorRes {
-	errList = append(errList, ErrorRes{
-		Field:  "author",
-		Reason: err.Error(),
-	})
+func addValidationError(errList []ErrorRes, field string, err error) []ErrorRes {
+	if err != nil {
+		errList = append(errList, ErrorRes{
+			Field:  field,
+			Reason: err.Error(),
+		})
+	}
 
 	return errList
 }
 
 func isEqual[T string | int](val T, toCompare T) error {
 	if val != toCompare {
-		err := fmt.Errorf("field should be equal to %s chars", toCompare)
+		err := fmt.Errorf("field should be equal to %v chars", toCompare)
 
 		return err
 	}
@@ -78,13 +80,13 @@ func validateEmptiness(val string) error {
 func validateLength(val int, min int, max int) error {
 	if min != -1 {
 		if val < min {
-			return fmt.Errorf("field should be contain more than %d chars", min)
+			return fmt.Errorf("field should contain more or equal than %d chars", min)
 		}
 	}
 
-	if min != -1 {
-		if val > min {
-			return fmt.Errorf("field should be contain less than %d chars", max)
+	if max != -1 {
+		if val > max {
+			return fmt.Errorf("field should contain less or equal than %d chars", max)
 		}
 	}
 
