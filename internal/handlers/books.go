@@ -3,16 +3,17 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Alexande92/go-simple-library/internal/storage"
 	"net/http"
 	"strconv"
 )
 
 type BookHandler struct {
-	db storage.Storage
+	db *storage.Storage
 }
 
-func NewBookHandler(db storage.Storage) *BookHandler {
+func NewBookHandler(db *storage.Storage) *BookHandler {
 	return &BookHandler{
 		db: db,
 	}
@@ -24,9 +25,9 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	books := h.db.GetAll()
 
-	err := json.NewEncoder(w).Encode(books)
+	//err := json.NewEncoder(w).Encode(books)
 
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(books); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode("Internal error: " + err.Error())
 		return
@@ -37,11 +38,15 @@ func (h *BookHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var book storage.Book
-	err := json.NewDecoder(r.Body).Decode(&book)
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode("Could not parse json")
+	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode("Could not parse json")
+
+		if err != nil {
+			fmt.Println(err)
+			//w.Write([]byte("{}"))
+		}
 		return
 	}
 
@@ -49,17 +54,20 @@ func (h *BookHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
 
 	if len(validatedErrs) != 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		err = json.NewEncoder(w).Encode(ValidationErrors{
+		json.NewEncoder(w).Encode(ValidationErrors{
 			Errors: validatedErrs,
 		})
 
 		return
 	}
-
-	h.db.Save(book)
+	book = h.db.AddBook(book)
+	book = h.db.Save(book)
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(book)
+
+	if err := json.NewEncoder(w).Encode(book); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func (h *BookHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +92,6 @@ func (h *BookHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	if err != nil {
@@ -106,19 +113,18 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode("Invalid book id")
 		return
 	}
-	_, err = h.db.GetById(int(bookId))
-
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(err.Error())
-		return
-	}
+	//_, err = h.db.GetById(int(bookId))
+	//
+	//if err != nil {
+	//	w.WriteHeader(http.StatusNotFound)
+	//	json.NewEncoder(w).Encode(err.Error())
+	//	return
+	//}
 
 	var book storage.Book
 
-	err = json.NewDecoder(r.Body).Decode(&book)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if err = json.NewDecoder(r.Body).Decode(&book); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode("Could not parse json")
 		return
 	}
@@ -134,7 +140,14 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	book.Id = int(bookId)
 
-	h.db.Update(book)
+	err = h.db.Update(book)
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(err.Error())
+		return
+	}
+
 	json.NewEncoder(w).Encode(book)
 	w.WriteHeader(http.StatusOK)
 }

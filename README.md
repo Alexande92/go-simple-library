@@ -17,8 +17,8 @@ Command **build** - just makes a binary
     make build
  ```
 
-Command **test** - should run tests from files with `_test` in name 
-All results will be shown with coverage per package. Required coverage per package ~80%
+Command **test** - should run tests from files
+All results will be shown with coverage per package. Required coverage per project ~80%
  ```bash
     make test
  ```

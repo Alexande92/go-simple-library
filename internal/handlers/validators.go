@@ -21,7 +21,7 @@ func ValidateBook(book storage.Book) []ErrorRes {
 	err := validateEmptiness(book.Author)
 	errList = addValidationError(errList, "author", err)
 
-	err = validateLength(len(book.Author), -1, 255)
+	err = validateLength(book.Author, -1, 255)
 	errList = addValidationError(errList, "author", err)
 
 	err = validateEmptiness(book.PublicationDate)
@@ -33,17 +33,18 @@ func ValidateBook(book storage.Book) []ErrorRes {
 	err = validateEmptiness(book.Title)
 	errList = addValidationError(errList, "title", err)
 
-	err = validateLength(len(book.Title), -1, 128)
+	err = validateLength(book.Title, -1, 128)
 	errList = addValidationError(errList, "title", err)
 
-	err = validateLength(len(book.Publisher), 1, 255)
+	err = validateLength(book.Publisher, 1, 255)
 	errList = addValidationError(errList, "publisher", err)
 
-	err = validateLength(len(book.Location), 1, 255)
+	err = validateLength(book.Location, 1, 255)
 	errList = addValidationError(errList, "location", err)
 
-	err = validateLength(book.Edition, 1, -1)
-	errList = addValidationError(errList, "edition", err)
+	if book.Edition <= 0 {
+		errList = addValidationError(errList, "edition", errors.New("edition should be a positive integer"))
+	}
 
 	return errList
 }
@@ -70,24 +71,21 @@ func isEqual[T string | int](val T, toCompare T) error {
 }
 
 func validateEmptiness(val string) error {
-	if len(val) == 0 {
+	if val == "" {
 		return errors.New("missing required field")
 	}
 
 	return nil
 }
 
-func validateLength(val int, min int, max int) error {
-	if min != -1 {
-		if val < min {
-			return fmt.Errorf("field should contain more or equal than %d chars", min)
-		}
+func validateLength(val string, minLen, maxLen int) error {
+
+	if len(val) < minLen {
+		return fmt.Errorf("field should be at least %d characters long", minLen)
 	}
 
-	if max != -1 {
-		if val > max {
-			return fmt.Errorf("field should contain less or equal than %d chars", max)
-		}
+	if len(val) > maxLen {
+		return fmt.Errorf("field length should not exceed %d characters", maxLen)
 	}
 
 	return nil

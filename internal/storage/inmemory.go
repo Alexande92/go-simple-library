@@ -2,7 +2,6 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 )
 
 // TODO make this storage not only book related, if needed
@@ -19,19 +18,29 @@ type Storage struct {
 	lastId int
 }
 
-func NewStorage() Storage {
-	return Storage{
+func NewStorage() *Storage {
+	return &Storage{
 		books: make(map[int]Book),
 	}
 }
 
-func (s *Storage) Save(b Book) {
-	id := b.setId(*s)
-	s.books[id] = b
-	s.lastId = id
-	fmt.Println(s.lastId)
-	fmt.Println(id)
-	fmt.Println("=-----------=")
+func (s *Storage) GetLastId() int {
+	return s.lastId
+}
+
+func (s *Storage) AddBook(book Book) Book {
+	s.lastId++
+	book.Id = s.lastId
+	return book
+}
+
+func (s *Storage) Save(b Book) Book {
+	//s.lastId++
+	//b.Id = s.lastId
+	//id := b.setId(*s)
+	s.books[b.Id] = b
+	//s.lastId = id
+	return b
 }
 
 func (s *Storage) GetAll() []Book {
@@ -52,10 +61,24 @@ func (s *Storage) GetById(id int) (Book, error) {
 	return book, nil
 }
 
-func (s *Storage) Delete(id int) {
+func (s *Storage) Delete(id int) error {
+	_, ok := s.books[id]
+
+	if !ok {
+		return ErrNotFound
+	}
+
 	delete(s.books, id)
+	return nil
 }
 
-func (s *Storage) Update(b Book) {
+func (s *Storage) Update(b Book) error {
+	_, ok := s.books[b.Id]
+
+	if !ok {
+		return ErrNotFound
+	}
+
 	s.books[b.Id] = b
+	return nil
 }

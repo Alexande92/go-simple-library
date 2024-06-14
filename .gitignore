@@ -1,2 +1,5 @@
 .idea
 dist
+coverage.html
+coverage.out
+coverage.out.tmp

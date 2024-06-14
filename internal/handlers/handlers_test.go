@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Alexande92/go-simple-library/internal/storage"
+	"github.com/Alexande92/go-simple-library/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -63,7 +64,7 @@ func sendTestRequest(t *testing.T, method string, path Path, payload []byte, han
 }
 
 func TestCheckHealth(t *testing.T) {
-	code, _, body := sendTestRequest(t, http.MethodGet,
+	code, contentType, body := sendTestRequest(t, http.MethodGet,
 		Path{
 			mainRoute: "/api/v1/health",
 		}, nil, CheckHealth)
@@ -71,52 +72,62 @@ func TestCheckHealth(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(http.StatusOK, code)
+	assert.Equal(contentType, "application/json")
 	assert.Equal("Healthy", string(body))
 }
 
-func TestGetAllBooksHandler(t *testing.T) {
-	db := storage.NewStorage()
+func TestGetAllBooksHandler_EmptyStorage(t *testing.T) {
+	db := testutils.CreateTestStorage()
 	h := NewBookHandler(db)
 
 	apiPath := Path{
 		mainRoute: "/api/v1/books",
 	}
 
-	t.Run("Should get no books", func(t *testing.T) {
-		code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBooks)
+	code, contentType, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBooks)
 
-		assert := assert.New(t)
+	assert := assert.New(t)
+	assert.Equal(http.StatusOK, code)
+	assert.Equal(contentType, "application/json")
 
-		assert.Equal(http.StatusOK, code)
-		actualBody := strings.Trim(string(body), "\n")
-		assert.Equal("[]", actualBody)
-
-	})
-
-	t.Run("Should get all books", func(t *testing.T) {
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBooks)
-
-		assert := assert.New(t)
-
-		assert.Equal(http.StatusOK, code)
-
-		getEncodedBook := string(func() []byte {
-			b := getTestBook()
-			var buf bytes.Buffer
-
-			b.Id = 1
-
-			json.NewEncoder(&buf).Encode([]storage.Book{b})
-			return buf.Bytes()
-		}())
-
-		assert.Equal(getEncodedBook, string(body))
-	})
+	actualBody := strings.Trim(string(body), "\n")
+	assert.Equal("[]", actualBody)
 }
 
-func TestBookHandler_GetBookById(t *testing.T) {
-	db := storage.NewStorage()
+func TestGetAllBooksHandler_NotEmptyStorage(t *testing.T) {
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
+	h := NewBookHandler(db)
+
+	apiPath := Path{
+		mainRoute: "/api/v1/books",
+	}
+
+	//initTestEnv(route, queyParam)
+
+	code, contentType, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBooks)
+
+	assert := assert.New(t)
+
+	assert.Equal(http.StatusOK, code)
+	assert.Equal(contentType, "application/json")
+
+	getEncodedBook := string(func() []byte {
+		b := testutils.GetTestBook()
+		b.Id = db.GetLastId()
+
+		var buf bytes.Buffer
+
+		err := json.NewEncoder(&buf).Encode([]storage.Book{b})
+		assert.NoError(err)
+
+		return buf.Bytes()
+	}())
+
+	assert.Equal(getEncodedBook, string(body))
+}
+
+func TestBookHandler_GetBookById_EmptyStorage(t *testing.T) {
+	db := testutils.CreateTestStorage()
 	h := NewBookHandler(db)
 
 	apiPath := Path{
@@ -124,53 +135,108 @@ func TestBookHandler_GetBookById(t *testing.T) {
 		pathValues: map[string]string{"id": "1"},
 	}
 
-	t.Run("Should find no books", func(t *testing.T) {
-		code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+	//t.Run("Should find no books", func(t *testing.T) {
+	code, contentType, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
 
-		assert := assert.New(t)
+	assert := assert.New(t)
 
-		assert.Equal(http.StatusNotFound, code)
-		assert.Equal("\"book not found\"\n", string(body))
+	assert.Equal(http.StatusNotFound, code)
+	assert.Equal(contentType, "application/json")
 
-	})
+	assert.Equal("\"book not found\"\n", string(body))
 
-	t.Run("Should get first book", func(t *testing.T) {
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+	//})
 
-		assert := assert.New(t)
+	//t.Run("Should get first book", func(t *testing.T) {
+	//	h.db.Save(getTestBook())
+	//	code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+	//
+	//	assert := assert.New(t)
+	//
+	//	assert.Equal(http.StatusOK, code)
+	//	getEncodedBook := string(func() []byte {
+	//		b := getTestBook()
+	//		var buf bytes.Buffer
+	//
+	//		b.Id = 1
+	//
+	//		json.NewEncoder(&buf).Encode(b)
+	//		return buf.Bytes()
+	//	}())
+	//
+	//	assert.Equal(getEncodedBook, string(body))
+	//})
+	//
+	//apiPath.pathValues["id"] = "test"
+	//
+	//t.Run("Should get error with wrong id", func(t *testing.T) {
+	//	h.db.Save(getTestBook())
+	//	code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+	//
+	//	assert := assert.New(t)
+	//
+	//	assert.Equal(http.StatusBadRequest, code)
+	//	actualBody := strings.Trim(string(body), "\n")
+	//
+	//	assert.Equal("\"Invalid book id\"", actualBody)
+	//})
+}
 
-		assert.Equal(http.StatusOK, code)
-		getEncodedBook := string(func() []byte {
-			b := getTestBook()
-			var buf bytes.Buffer
+func TestBookHandler_GetBookById_NotEmptyStorage(t *testing.T) {
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
+	h := NewBookHandler(db)
 
-			b.Id = 1
+	apiPath := Path{
+		mainRoute:  "/api/v1/books",
+		pathValues: map[string]string{"id": "1"},
+	}
 
-			json.NewEncoder(&buf).Encode(b)
-			return buf.Bytes()
-		}())
+	//h.db.Save(getTestBook())
+	code, contentType, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
 
-		assert.Equal(getEncodedBook, string(body))
-	})
+	assert := assert.New(t)
 
-	apiPath.pathValues["id"] = "test"
+	assert.Equal(http.StatusOK, code)
+	assert.Equal(contentType, "application/json")
 
-	t.Run("Should get error with wrong id", func(t *testing.T) {
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+	getEncodedBook := string(func() []byte {
+		b := testutils.GetTestBook()
+		b.Id = db.GetLastId()
 
-		assert := assert.New(t)
+		var buf bytes.Buffer
 
-		assert.Equal(http.StatusBadRequest, code)
-		actualBody := strings.Trim(string(body), "\n")
+		err := json.NewEncoder(&buf).Encode(b)
+		assert.NoError(err)
 
-		assert.Equal("\"Invalid book id\"", actualBody)
-	})
+		return buf.Bytes()
+	}())
+
+	assert.Equal(getEncodedBook, string(body))
+}
+
+func TestBookHandler_GetBookByWrongId(t *testing.T) {
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
+	h := NewBookHandler(db)
+
+	apiPath := Path{
+		mainRoute:  "/api/v1/books",
+		pathValues: map[string]string{"id": "test"},
+	}
+
+	//h.db.Save(getTestBook())
+	code, contentType, body := sendTestRequest(t, http.MethodGet, apiPath, nil, h.GetBookById)
+
+	assert := assert.New(t)
+	assert.Equal(contentType, "application/json")
+
+	assert.Equal(http.StatusBadRequest, code)
+	actualBody := strings.Trim(string(body), "\n")
+
+	assert.Equal("\"Invalid book id\"", actualBody)
 }
 
 func TestBookHandler_DeleteBook(t *testing.T) {
-	db := storage.NewStorage()
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
 	h := NewBookHandler(db)
 
 	apiPath := Path{
@@ -178,93 +244,168 @@ func TestBookHandler_DeleteBook(t *testing.T) {
 		pathValues: map[string]string{"id": "1"},
 	}
 
-	t.Run("Should delete book", func(t *testing.T) {
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodDelete, apiPath, nil, h.DeleteBook)
+	//t.Run("Should delete book", func(t *testing.T) {
+	//	h.db.Save(getTestBook())
+	code, _, body := sendTestRequest(t, http.MethodDelete, apiPath, nil, h.DeleteBook)
 
-		assert := assert.New(t)
+	assert := assert.New(t)
 
-		assert.Equal(http.StatusOK, code)
-		assert.Equal("", string(body))
-	})
+	assert.Equal(http.StatusOK, code)
+	assert.Equal("", string(body))
+	//})
+}
 
-	apiPath.pathValues["id"] = "test"
+func TestBookHandler_DeleteBookByWrongId(t *testing.T) {
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
+	h := NewBookHandler(db)
 
-	t.Run("Should get error with wrong id", func(t *testing.T) {
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodDelete, apiPath, nil, h.DeleteBook)
+	apiPath := Path{
+		mainRoute:  "/api/v1/books",
+		pathValues: map[string]string{"id": "test"},
+	}
 
-		assert := assert.New(t)
+	//t.Run("Should get error with wrong id", func(t *testing.T) {
+	//h.db.Save(getTestBook())
+	code, _, body := sendTestRequest(t, http.MethodDelete, apiPath, nil, h.DeleteBook)
 
-		assert.Equal(http.StatusBadRequest, code)
-		actualBody := strings.Trim(string(body), "\n")
+	assert := assert.New(t)
 
-		assert.Equal("\"Invalid book id\"", actualBody)
-	})
+	assert.Equal(http.StatusBadRequest, code)
+	actualBody := strings.Trim(string(body), "\n")
+
+	assert.Equal("\"Invalid book id\"", actualBody)
+	//})
+}
+
+func TestBookHandler_SaveBookFailed_WrongJSON(t *testing.T) {
+	db := testutils.CreateTestStorage()
+	h := NewBookHandler(db)
+
+	apiPath := Path{
+		mainRoute: "/api/v1/books",
+	}
+	assert := assert.New(t)
+
+	var buf bytes.Buffer
+
+	err := json.NewEncoder(&buf).Encode("{{}")
+	assert.NoError(err)
+
+	code, contentType, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+
+	assert.Equal(http.StatusInternalServerError, code)
+	assert.Equal(contentType, "application/json")
+
+	assert.Equal("\"Could not parse json\"\n", string(body))
 }
 
 func TestBookHandler_SaveBook(t *testing.T) {
-	db := storage.NewStorage()
+	db := testutils.CreateTestStorage()
+	//fmt.Printf("%p\n", &db.LastId)
 	h := NewBookHandler(db)
 
 	apiPath := Path{
 		mainRoute: "/api/v1/books",
 	}
 
-	t.Run("Should fail when sent wrong json", func(t *testing.T) {
-		var buf bytes.Buffer
+	//t.Run("Should fail when sent wrong json", func(t *testing.T) {
+	//	var buf bytes.Buffer
+	//
+	//	json.NewEncoder(&buf).Encode("{{}")
+	//	code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+	//
+	//	assert := assert.New(t)
+	//
+	//	assert.Equal(http.StatusInternalServerError, code)
+	//	assert.Equal("\"Could not parse json\"\n", string(body))
+	//})
 
-		json.NewEncoder(&buf).Encode("{{}")
-		code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+	//t.Run("Should save book", func(t *testing.T) {
+	book := testutils.GetTestBook()
 
-		assert := assert.New(t)
+	var buf bytes.Buffer
+	assert := assert.New(t)
 
-		assert.Equal(http.StatusInternalServerError, code)
-		assert.Equal("\"Could not parse json\"\n", string(body))
-	})
+	err := json.NewEncoder(&buf).Encode(book)
+	assert.NoError(err)
+	code, contentType, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
 
-	t.Run("Should save book", func(t *testing.T) {
-		book := getTestBook()
-		var buf bytes.Buffer
+	assert.Equal(http.StatusCreated, code)
+	assert.Equal(contentType, "application/json")
 
-		json.NewEncoder(&buf).Encode(book)
-		code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+	buf.Reset()
+	book.Id = db.GetLastId()
 
-		assert := assert.New(t)
+	err = json.NewEncoder(&buf).Encode(book)
 
-		assert.Equal(http.StatusCreated, code)
-		assert.Equal(buf.String(), string(body))
-	})
+	assert.NoError(err)
+	assert.Equal(buf.String(), string(body))
+	//})
 
-	t.Run("Should fail validation", func(t *testing.T) {
-		expected := ValidationErrors{
-			Errors: []ErrorRes{
-				{Field: "author", Reason: "missing required field"},
-				{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
-			},
-		}
+	//t.Run("Should fail validation", func(t *testing.T) {
+	//	expected := ValidationErrors{
+	//		Errors: []ErrorRes{
+	//			{Field: "author", Reason: "missing required field"},
+	//			{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
+	//		},
+	//	}
+	//
+	//	book := getTestBook()
+	//	book.PublicationDate = "22-29"
+	//	book.Author = ""
+	//
+	//	var buf bytes.Buffer
+	//	var encodedBuf bytes.Buffer
+	//
+	//	json.NewEncoder(&buf).Encode(book)
+	//	json.NewEncoder(&encodedBuf).Encode(expected)
+	//
+	//	code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+	//
+	//	assert := assert.New(t)
+	//
+	//	assert.Equal(http.StatusBadRequest, code)
+	//	assert.Equal(encodedBuf.String(), string(body))
+	//})
+}
 
-		book := getTestBook()
-		book.PublicationDate = "22-29"
-		book.Author = ""
+func TestBookHandler_SaveBook_ValidationError(t *testing.T) {
+	db := testutils.CreateTestStorage()
+	h := NewBookHandler(db)
 
-		var buf bytes.Buffer
-		var encodedBuf bytes.Buffer
+	apiPath := Path{
+		mainRoute: "/api/v1/books",
+	}
 
-		json.NewEncoder(&buf).Encode(book)
-		json.NewEncoder(&encodedBuf).Encode(expected)
+	expected := ValidationErrors{
+		Errors: []ErrorRes{
+			{Field: "author", Reason: "missing required field"},
+			{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
+		},
+	}
 
-		code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+	book := testutils.GetTestBook()
+	book.PublicationDate = "22-29"
+	book.Author = ""
 
-		assert := assert.New(t)
+	var buf bytes.Buffer
+	var encodedBuf bytes.Buffer
 
-		assert.Equal(http.StatusBadRequest, code)
-		assert.Equal(encodedBuf.String(), string(body))
-	})
+	json.NewEncoder(&buf).Encode(book)
+	json.NewEncoder(&encodedBuf).Encode(expected)
+
+	code, contentType, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.SaveBook)
+
+	assert := assert.New(t)
+
+	assert.Equal(http.StatusBadRequest, code)
+	assert.Equal(contentType, "application/json")
+
+	assert.Equal(encodedBuf.String(), string(body))
 }
 
 func TestBookHandler_UpdateBook(t *testing.T) {
-	db := storage.NewStorage()
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
 	h := NewBookHandler(db)
 
 	apiPath := Path{
@@ -272,53 +413,89 @@ func TestBookHandler_UpdateBook(t *testing.T) {
 		pathValues: map[string]string{"id": "1"},
 	}
 
-	t.Run("Should update book", func(t *testing.T) {
-		book := getTestBook()
-		book.Id = 1
-		book.Author = "A. Dyuma"
-		var buf bytes.Buffer
+	//t.Run("Should update book", func(t *testing.T) {
+	book := testutils.GetTestBook()
+	book.Id = db.GetLastId()
+	book.Author = "A. Dyuma"
+	var buf bytes.Buffer
 
-		json.NewEncoder(&buf).Encode(book)
+	json.NewEncoder(&buf).Encode(book)
 
-		h.db.Save(getTestBook())
-		code, _, body := sendTestRequest(t, http.MethodPut, apiPath, buf.Bytes(), h.UpdateBook)
+	//h.db.Save(getTestBook())
+	code, contentType, body := sendTestRequest(t, http.MethodPut, apiPath, buf.Bytes(), h.UpdateBook)
 
-		assert := assert.New(t)
+	assert := assert.New(t)
 
-		assert.Equal(http.StatusOK, code)
-		assert.Equal(buf.String(), string(body))
-	})
+	assert.Equal(http.StatusOK, code)
+	assert.Equal(contentType, "application/json")
 
-	t.Run("Should fail validation", func(t *testing.T) {
-		expected := ValidationErrors{
-			Errors: []ErrorRes{
-				{Field: "author", Reason: "missing required field"},
-				{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
-			},
-		}
+	assert.Equal(buf.String(), string(body))
+	//})
 
-		book := getTestBook()
-		book.PublicationDate = "22-29"
-		book.Author = ""
+	//t.Run("Should fail validation", func(t *testing.T) {
+	//	expected := ValidationErrors{
+	//		Errors: []ErrorRes{
+	//			{Field: "author", Reason: "missing required field"},
+	//			{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
+	//		},
+	//	}
+	//
+	//	book := getTestBook()
+	//	book.PublicationDate = "22-29"
+	//	book.Author = ""
+	//
+	//	var buf bytes.Buffer
+	//	var encodedBuf bytes.Buffer
+	//
+	//	json.NewEncoder(&buf).Encode(book)
+	//	json.NewEncoder(&encodedBuf).Encode(expected)
+	//
+	//	code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.UpdateBook)
+	//
+	//	assert := assert.New(t)
+	//
+	//	assert.Equal(http.StatusBadRequest, code)
+	//	assert.Equal(encodedBuf.String(), string(body))
+	//})
+}
 
-		var buf bytes.Buffer
-		var encodedBuf bytes.Buffer
+func TestBookHandler_UpdateBook_ValidationError(t *testing.T) {
+	db := testutils.CreateTestStorage(testutils.GetTestBook())
+	h := NewBookHandler(db)
 
-		json.NewEncoder(&buf).Encode(book)
-		json.NewEncoder(&encodedBuf).Encode(expected)
+	apiPath := Path{
+		mainRoute:  "/api/v1/books",
+		pathValues: map[string]string{"id": "1"},
+	}
 
-		code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.UpdateBook)
+	expected := ValidationErrors{
+		Errors: []ErrorRes{
+			{Field: "author", Reason: "missing required field"},
+			{Field: "publicationDate", Reason: "field should be equal to 7 chars"},
+		},
+	}
 
-		assert := assert.New(t)
+	book := testutils.GetTestBook()
+	book.PublicationDate = "22-29"
+	book.Author = ""
 
-		assert.Equal(http.StatusBadRequest, code)
-		assert.Equal(encodedBuf.String(), string(body))
-	})
+	var buf bytes.Buffer
+	var encodedBuf bytes.Buffer
+
+	json.NewEncoder(&buf).Encode(book)
+	json.NewEncoder(&encodedBuf).Encode(expected)
+
+	code, _, body := sendTestRequest(t, http.MethodPost, apiPath, buf.Bytes(), h.UpdateBook)
+
+	assert := assert.New(t)
+
+	assert.Equal(http.StatusBadRequest, code)
+	assert.Equal(encodedBuf.String(), string(body))
 }
 
 func TestValidateBook(t *testing.T) {
 	t.Run("Should be validated ok", func(t *testing.T) {
-		book := getTestBook()
+		book := testutils.GetTestBook()
 
 		assert := assert.New(t)
 
@@ -329,59 +506,59 @@ func TestValidateBook(t *testing.T) {
 	t.Run("Should fail without required field", func(t *testing.T) {
 		expected := errors.New("missing required field")
 
-		book := getTestBook()
+		book := testutils.GetTestBook()
 		book.PublicationDate = ""
 
 		assert := assert.New(t)
 
 		actual := validateEmptiness(book.PublicationDate)
-		assert.Equal(expected, actual)
+		assert.ErrorIs(expected, actual)
 	})
 
 	t.Run("Should fail when field not equal to 7 chars", func(t *testing.T) {
 		expected := errors.New("field should be equal to 7 chars")
 
-		book := getTestBook()
+		book := testutils.GetTestBook()
 		book.PublicationDate = "21-21"
 
 		assert := assert.New(t)
 
 		actual := isEqual(len(book.PublicationDate), 7)
-		assert.Equal(expected, actual)
+		assert.ErrorIs(expected, actual)
 	})
 
 	t.Run("Should fail when length more than 10 chars", func(t *testing.T) {
-		expected := errors.New("field should contain less or equal than 10 chars")
+		expected := errors.New("field length should not exceed 10 characters")
 
-		book := getTestBook()
+		book := testutils.GetTestBook()
 		book.Author = "Joan Joan Rouling"
 
 		assert := assert.New(t)
 
-		actual := validateLength(len(book.Author), -1, 10)
-		assert.Equal(expected, actual)
+		actual := validateLength(book.Author, 1, 10)
+		assert.ErrorIs(expected, actual)
 	})
 
 	t.Run("Should fail when length less than 10 chars", func(t *testing.T) {
-		expected := errors.New("field should contain more or equal than 10 chars")
+		expected := errors.New("field length should not exceed 8 characters")
 
-		book := getTestBook()
+		book := testutils.GetTestBook()
 		book.Author = "J.Rouling"
 
 		assert := assert.New(t)
 
-		actual := validateLength(len(book.Author), 10, -1)
-		assert.Equal(expected, actual)
+		actual := validateLength(book.Author, 1, 8)
+		assert.ErrorIs(expected, actual)
 	})
 
 	t.Run("Should be ok when length in proper range", func(t *testing.T) {
 
-		book := getTestBook()
+		book := testutils.GetTestBook()
 
 		assert := assert.New(t)
 
-		actual := validateLength(len(book.Author), 1, 255)
-		assert.Equal(nil, actual)
+		actual := validateLength(book.Author, 1, 255)
+		assert.ErrorIs(nil, actual)
 	})
 }
 
@@ -408,13 +585,14 @@ func TestAddingValidationError(t *testing.T) {
 		assert.Equal(expected, actual)
 	})
 }
-func getTestBook() storage.Book {
-	return storage.Book{
-		Author:          "test",
-		Title:           "test",
-		PublicationDate: "2022-12",
-		Publisher:       "test",
-		Edition:         2,
-		Location:        "test",
-	}
-}
+
+//func getTestBook() storage.Book {
+//	return storage.Book{
+//		Author:          "test",
+//		Title:           "test",
+//		PublicationDate: "2022-12",
+//		Publisher:       "test",
+//		Edition:         2,
+//		Location:        "test",
+//	}
+//}
