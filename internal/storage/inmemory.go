@@ -2,25 +2,19 @@ package storage
 
 import (
 	"errors"
+	"github.com/Alexande92/go-simple-library/internal/entities"
 )
-
-// TODO make this storage not only book related, if needed
-
-type Entity interface {
-	getId() int
-	setId(s Storage) int
-}
 
 var ErrNotFound = errors.New("book not found")
 
 type Storage struct {
-	books  map[int]Book
+	books  map[int]entities.Book
 	lastId int
 }
 
 func NewStorage() *Storage {
 	return &Storage{
-		books: make(map[int]Book),
+		books: make(map[int]entities.Book),
 	}
 }
 
@@ -28,23 +22,19 @@ func (s *Storage) GetLastId() int {
 	return s.lastId
 }
 
-func (s *Storage) AddBook(book Book) Book {
+func (s *Storage) AddBook(book entities.Book) entities.Book {
 	s.lastId++
 	book.Id = s.lastId
 	return book
 }
 
-func (s *Storage) Save(b Book) Book {
-	//s.lastId++
-	//b.Id = s.lastId
-	//id := b.setId(*s)
+func (s *Storage) Save(b entities.Book) entities.Book {
 	s.books[b.Id] = b
-	//s.lastId = id
 	return b
 }
 
-func (s *Storage) GetAll() []Book {
-	books := make([]Book, 0, len(s.books))
+func (s *Storage) GetAll() []entities.Book {
+	books := make([]entities.Book, 0, len(s.books))
 
 	for _, v := range s.books {
 		books = append(books, v)
@@ -52,11 +42,11 @@ func (s *Storage) GetAll() []Book {
 	return books
 }
 
-func (s *Storage) GetById(id int) (Book, error) {
+func (s *Storage) GetById(id int) (entities.Book, error) {
 	book, ok := s.books[id]
 
 	if !ok {
-		return Book{}, ErrNotFound
+		return entities.Book{}, ErrNotFound
 	}
 	return book, nil
 }
@@ -72,7 +62,7 @@ func (s *Storage) Delete(id int) error {
 	return nil
 }
 
-func (s *Storage) Update(b Book) error {
+func (s *Storage) Update(b entities.Book) error {
 	_, ok := s.books[b.Id]
 
 	if !ok {

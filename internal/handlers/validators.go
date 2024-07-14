@@ -3,7 +3,8 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/Alexande92/go-simple-library/internal/storage"
+	"github.com/Alexande92/go-simple-library/internal/entities"
+	"math"
 )
 
 type ValidationErrors struct {
@@ -15,31 +16,22 @@ type ErrorRes struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-func ValidateBook(book storage.Book) []ErrorRes {
+func ValidateBook(book entities.Book) []ErrorRes {
 	errList := make([]ErrorRes, 0)
 
-	err := validateEmptiness(book.Author)
+	err := validateLength(book.Author, 1, math.MaxInt)
 	errList = addValidationError(errList, "author", err)
-
-	err = validateLength(book.Author, -1, 255)
-	errList = addValidationError(errList, "author", err)
-
-	err = validateEmptiness(book.PublicationDate)
-	errList = addValidationError(errList, "publicationDate", err)
 
 	err = isEqual(len(book.PublicationDate), 7)
 	errList = addValidationError(errList, "publicationDate", err)
 
-	err = validateEmptiness(book.Title)
+	err = validateLength(book.Title, 1, 128)
 	errList = addValidationError(errList, "title", err)
 
-	err = validateLength(book.Title, -1, 128)
-	errList = addValidationError(errList, "title", err)
-
-	err = validateLength(book.Publisher, 1, 255)
+	err = validateLength(book.Publisher, 1, math.MaxInt)
 	errList = addValidationError(errList, "publisher", err)
 
-	err = validateLength(book.Location, 1, 255)
+	err = validateLength(book.Location, 1, math.MaxInt)
 	errList = addValidationError(errList, "location", err)
 
 	if book.Edition <= 0 {
@@ -65,14 +57,6 @@ func isEqual[T string | int](val T, toCompare T) error {
 		err := fmt.Errorf("field should be equal to %v chars", toCompare)
 
 		return err
-	}
-
-	return nil
-}
-
-func validateEmptiness(val string) error {
-	if val == "" {
-		return errors.New("missing required field")
 	}
 
 	return nil
