@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/Alexande92/go-simple-library/internal/entities"
+	"github.com/Alexande92/go-simple-library/internal/entity"
 	"github.com/Alexande92/go-simple-library/internal/storage"
 	"github.com/Alexande92/go-simple-library/testutils"
 	"github.com/stretchr/testify/assert"
@@ -17,12 +17,7 @@ import (
 	"testing"
 )
 
-type Path struct {
-	mainRoute  string
-	pathValues map[string]string
-}
-
-var apiUrl string = "/api/v1/books"
+const ApiUrl = "/api/v1/books"
 
 func sendTestRequest(t *testing.T, method string, path string, payload []byte, db *storage.Storage) (int, string, []byte) {
 	t.Helper()
@@ -58,6 +53,10 @@ func sendTestRequest(t *testing.T, method string, path string, payload []byte, d
 	return resp.StatusCode, contentType, respBody
 }
 
+func decodeJsonErrorResponse(body []byte) {
+
+}
+
 func TestCheckHealth(t *testing.T) {
 	code, contentType, body := sendTestRequest(t, http.MethodGet, "/api/v1/health", nil, nil)
 	assert := assert.New(t)
@@ -68,8 +67,8 @@ func TestCheckHealth(t *testing.T) {
 }
 
 func TestGetAllBooksHandler_EmptyStorage(t *testing.T) {
-	db := CreateTestStorage()
-	code, contentType, body := sendTestRequest(t, http.MethodGet, apiUrl, nil, db)
+	db := storage.NewStorage()
+	code, contentType, body := sendTestRequest(t, http.MethodGet, ApiUrl, nil, db)
 
 	assert := assert.New(t)
 	assert.Equal(http.StatusOK, code)
@@ -80,85 +79,89 @@ func TestGetAllBooksHandler_EmptyStorage(t *testing.T) {
 }
 
 func TestGetAllBooksHandler_NotEmptyStorage(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
+	book := testutils.GetTestBook()
+	book.ID = 1
+	db := storage.NewWithBooks(book)
 
-	payload, err := json.Marshal(testutils.GetTestBook())
+	payload, err := json.Marshal(book)
 	require.NoError(t, err)
 
-	code, contentType, body := sendTestRequest(t, http.MethodGet, apiUrl, payload, db)
+	code, contentType, body := sendTestRequest(t, http.MethodGet, ApiUrl, payload, db)
 
 	assert := assert.New(t)
 
 	assert.Equal(http.StatusOK, code)
 	assert.Equal(contentType, "application/json")
 
-	getEncodedBook := string(func() []byte {
-		b := testutils.GetTestBook()
-		b.Id = db.GetLastId()
+	var res []entity.Book
 
-		var buf bytes.Buffer
+	err = json.Unmarshal(body, &res)
+	require.NoError(t, err)
 
-		err = json.NewEncoder(&buf).Encode([]entities.Book{b})
-		assert.NoError(err)
-
-		return buf.Bytes()
-	}())
-
-	assert.Equal(getEncodedBook, string(body))
+	assert.Equal([]entity.Book{book}, res)
 }
 
 func TestBookHandler_GetBookById_EmptyStorage(t *testing.T) {
-	db := CreateTestStorage()
-	code, contentType, body := sendTestRequest(t, http.MethodGet, apiUrl+"/1", nil, db)
+	db := storage.NewStorage()
+	code, contentType, body := sendTestRequest(t, http.MethodGet, ApiUrl+"/1", nil, db)
 
 	assert := assert.New(t)
 
 	assert.Equal(http.StatusNotFound, code)
 	assert.Equal(contentType, "application/json")
 
-	assert.Equal("\"Book not found\"\n", string(body))
+	var res JsonErrorResponse
+
+	err := json.Unmarshal(body, &res)
+	require.NoError(t, err)
+
+	assert.Equal(JsonErrorResponse{
+		Message: "Book not found",
+	}, res)
 }
 
 func TestBookHandler_GetBookById_NotEmptyStorage(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
-	code, contentType, body := sendTestRequest(t, http.MethodGet, apiUrl+"/1", nil, db)
+	book := testutils.GetTestBook()
+	book.ID = 1
+
+	db := storage.NewWithBooks(book)
+	code, contentType, body := sendTestRequest(t, http.MethodGet, ApiUrl+"/1", nil, db)
 
 	assert := assert.New(t)
 
 	assert.Equal(http.StatusOK, code)
 	assert.Equal(contentType, "application/json")
 
-	getEncodedBook := string(func() []byte {
-		b := testutils.GetTestBook()
-		b.Id = db.GetLastId()
+	var res entity.Book
 
-		var buf bytes.Buffer
+	err := json.Unmarshal(body, &res)
+	require.NoError(t, err)
 
-		err := json.NewEncoder(&buf).Encode(b)
-		assert.NoError(err)
-
-		return buf.Bytes()
-	}())
-
-	assert.Equal(getEncodedBook, string(body))
+	assert.Equal(book, res)
 }
 
 func TestBookHandler_GetBookByWrongId(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
-	code, contentType, body := sendTestRequest(t, http.MethodGet, apiUrl+"/test", nil, db)
+	db := storage.NewWithBooks(testutils.GetTestBook())
+	code, contentType, body := sendTestRequest(t, http.MethodGet, ApiUrl+"/test", nil, db)
 
 	assert := assert.New(t)
 	assert.Equal(contentType, "application/json")
 
 	assert.Equal(http.StatusBadRequest, code)
-	actualBody := strings.Trim(string(body), "\n")
 
-	assert.Equal("\"Invalid book id\"", actualBody)
+	var res JsonErrorResponse
+
+	err := json.Unmarshal(body, &res)
+	require.NoError(t, err)
+
+	assert.Equal(JsonErrorResponse{
+		Message: "Invalid book id",
+	}, res)
 }
 
 func TestBookHandler_DeleteBook(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
-	code, _, body := sendTestRequest(t, http.MethodDelete, apiUrl+"/1", nil, db)
+	db := storage.NewWithBooks(testutils.GetTestBook())
+	code, _, body := sendTestRequest(t, http.MethodDelete, ApiUrl+"/1", nil, db)
 
 	assert := assert.New(t)
 
@@ -167,59 +170,70 @@ func TestBookHandler_DeleteBook(t *testing.T) {
 }
 
 func TestBookHandler_DeleteBookByWrongId(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
-	code, _, body := sendTestRequest(t, http.MethodDelete, apiUrl+"/test", nil, db)
+	db := storage.NewWithBooks(testutils.GetTestBook())
+	code, _, body := sendTestRequest(t, http.MethodDelete, ApiUrl+"/test", nil, db)
 
 	assert := assert.New(t)
 
 	assert.Equal(http.StatusBadRequest, code)
-	actualBody := strings.Trim(string(body), "\n")
 
-	assert.Equal("\"Invalid book id\"", actualBody)
+	var actualBody JsonErrorResponse
+	err := json.Unmarshal(body, &actualBody)
+	require.NoError(t, err)
+
+	assert.Equal(JsonErrorResponse{
+		Message: "Invalid book id",
+	}, actualBody)
 }
 
 func TestBookHandler_SaveBookFailed_WrongJSON(t *testing.T) {
-	db := CreateTestStorage()
+	db := storage.NewStorage()
 	assert := assert.New(t)
 
 	var buf bytes.Buffer
 
 	err := json.NewEncoder(&buf).Encode("{{}")
-	assert.NoError(err)
+	require.NoError(t, err)
 
-	code, contentType, body := sendTestRequest(t, http.MethodPost, apiUrl, buf.Bytes(), db)
+	code, contentType, body := sendTestRequest(t, http.MethodPost, ApiUrl, buf.Bytes(), db)
 
 	assert.Equal(http.StatusBadRequest, code)
 	assert.Equal(contentType, "application/json")
 
-	assert.Equal("\"Couldn't parse json\"\n", string(body))
+	var res JsonErrorResponse
+	err = json.Unmarshal(body, &res)
+	require.NoError(t, err)
+
+	assert.Equal(JsonErrorResponse{
+		Message: "Couldn't parse json",
+	}, res)
 }
 
 func TestBookHandler_SaveBook(t *testing.T) {
-	db := CreateTestStorage()
+	db := storage.NewStorage()
 	book := testutils.GetTestBook()
 
 	var buf bytes.Buffer
 	assert := assert.New(t)
 
 	err := json.NewEncoder(&buf).Encode(book)
-	assert.NoError(err)
-	code, contentType, body := sendTestRequest(t, http.MethodPost, apiUrl, buf.Bytes(), db)
+	require.NoError(t, err)
+	code, contentType, body := sendTestRequest(t, http.MethodPost, ApiUrl, buf.Bytes(), db)
 
 	assert.Equal(http.StatusCreated, code)
 	assert.Equal(contentType, "application/json")
 
 	buf.Reset()
-	book.Id = db.GetLastId()
+	book.ID = 1
 
 	err = json.NewEncoder(&buf).Encode(book)
 
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.Equal(buf.String(), string(body))
 }
 
 func TestBookHandler_SaveBook_ValidationError(t *testing.T) {
-	db := CreateTestStorage()
+	db := storage.NewStorage()
 
 	expected := ValidationErrors{
 		Errors: []ErrorRes{
@@ -238,7 +252,7 @@ func TestBookHandler_SaveBook_ValidationError(t *testing.T) {
 	json.NewEncoder(&buf).Encode(book)
 	json.NewEncoder(&encodedBuf).Encode(expected)
 
-	code, contentType, body := sendTestRequest(t, http.MethodPost, apiUrl, buf.Bytes(), db)
+	code, contentType, body := sendTestRequest(t, http.MethodPost, ApiUrl, buf.Bytes(), db)
 
 	assert := assert.New(t)
 
@@ -249,16 +263,16 @@ func TestBookHandler_SaveBook_ValidationError(t *testing.T) {
 }
 
 func TestBookHandler_UpdateBook(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
+	db := storage.NewWithBooks(testutils.GetTestBook())
 
 	book := testutils.GetTestBook()
-	book.Id = db.GetLastId()
+	book.ID = 1
 	book.Author = "A. Dyuma"
 	var buf bytes.Buffer
 
 	json.NewEncoder(&buf).Encode(book)
 
-	code, contentType, body := sendTestRequest(t, http.MethodPut, apiUrl+"/1", buf.Bytes(), db)
+	code, contentType, body := sendTestRequest(t, http.MethodPut, ApiUrl+"/1", buf.Bytes(), db)
 
 	assert := assert.New(t)
 
@@ -269,7 +283,7 @@ func TestBookHandler_UpdateBook(t *testing.T) {
 }
 
 func TestBookHandler_UpdateBook_ValidationError(t *testing.T) {
-	db := CreateTestStorage(testutils.GetTestBook())
+	db := storage.NewWithBooks(testutils.GetTestBook())
 
 	expected := ValidationErrors{
 		Errors: []ErrorRes{
@@ -288,7 +302,7 @@ func TestBookHandler_UpdateBook_ValidationError(t *testing.T) {
 	json.NewEncoder(&buf).Encode(book)
 	json.NewEncoder(&encodedBuf).Encode(expected)
 
-	code, _, body := sendTestRequest(t, http.MethodPut, apiUrl+"/1", buf.Bytes(), db)
+	code, _, body := sendTestRequest(t, http.MethodPut, ApiUrl+"/1", buf.Bytes(), db)
 
 	assert := assert.New(t)
 
@@ -387,18 +401,4 @@ func TestAddingValidationError(t *testing.T) {
 		assert := assert.New(t)
 		assert.Equal(expected, actual)
 	})
-}
-
-func CreateTestStorage(books ...entities.Book) *storage.Storage {
-	db := storage.NewStorage()
-
-	if len(books) > 0 {
-		for _, book := range books {
-			book = db.AddBook(book)
-
-			db.Save(book)
-		}
-	}
-
-	return db
 }

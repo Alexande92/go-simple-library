@@ -1,9 +1,10 @@
 package storage
 
 import (
-	"github.com/Alexande92/go-simple-library/internal/entities"
+	"github.com/Alexande92/go-simple-library/internal/entity"
 	"github.com/Alexande92/go-simple-library/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -11,51 +12,50 @@ func TestStorage_GetAll_EmptyStorage(t *testing.T) {
 	storage := NewStorage()
 	books := storage.GetAll()
 
-	assert := assert.New(t)
-	assert.Equal([]entities.Book{}, books)
+	assert.Equal(t, []entity.Book{}, books)
 }
 
 func TestStorage_GetAll_NotEmptyStorage(t *testing.T) {
 	book := testutils.GetTestBook()
 
-	storage := CreateTestStorage(book)
+	storage := NewWithBooks(book)
 
-	book.Id = storage.lastId
+	book.ID = storage.lastId
 	books := storage.GetAll()
-	assert.Equal(t, []entities.Book{
+	assert.Equal(t, []entity.Book{
 		book,
 	}, books)
 }
 
 func TestStorage_Save(t *testing.T) {
 	book := testutils.GetTestBook()
-	storage := CreateTestStorage(book)
+	storage := NewWithBooks(book)
 
 	assert := assert.New(t)
 	assert.Equal(1, storage.lastId)
 
-	savedBook, err := storage.GetById(storage.GetLastId())
-	assert.NoError(err)
+	savedBook, err := storage.GetById(1)
+	require.NoError(t, err)
 
-	book.Id = storage.lastId
+	book.ID = storage.lastId
 	assert.Equal(book, savedBook)
 }
 
 func TestStorage_Update(t *testing.T) {
 	book := testutils.GetTestBook()
-	storage := CreateTestStorage(book)
+	storage := NewWithBooks(book)
 
 	assert := assert.New(t)
 
 	book, err := storage.GetById(storage.lastId)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	book.Author = "Duma Junior"
 	err = storage.Update(book)
-	assert.NoError(err)
+	require.NoError(t, err)
 
-	updated, err := storage.GetById(book.Id)
-	assert.NoError(err)
+	updated, err := storage.GetById(book.ID)
+	require.NoError(t, err)
 
 	assert.Equal(book.Author, updated.Author)
 }
@@ -66,40 +66,25 @@ func TestStorage_DeleteLastItem(t *testing.T) {
 
 	storage.Save(book)
 
-	err := storage.Delete(storage.GetLastId())
-	assert.NoError(t, err)
+	err := storage.Delete(1)
+	require.NoError(t, err)
 
 	assert.Len(t, storage.GetAll(), 0)
 }
 
 func TestStorage_GetById(t *testing.T) {
 	book := testutils.GetTestBook()
-	storage := CreateTestStorage(book)
+	storage := NewWithBooks(book)
 
-	t.Run("Storage should return book by id", func(t *testing.T) {
-		foundBook, err := storage.GetById(storage.lastId)
-		book.Id = storage.lastId
-		assert.NoError(t, err)
-		assert.Equal(t, book, foundBook)
-	})
+	foundBook, err := storage.GetById(storage.lastId)
+	book.ID = storage.lastId
+	require.NoError(t, err)
 
-	t.Run("Storage should return Err not found", func(t *testing.T) {
-		_, err := storage.GetById(2)
-		assert.ErrorIs(t, ErrNotFound, err)
-	})
-
+	assert.Equal(t, book, foundBook)
 }
 
-func CreateTestStorage(books ...entities.Book) *Storage {
-	db := NewStorage()
-
-	if len(books) > 0 {
-		for _, book := range books {
-			book = db.AddBook(book)
-
-			db.Save(book)
-		}
-	}
-
-	return db
+func TestStorage_GetById_NotFound(t *testing.T) {
+	storage := NewStorage()
+	_, err := storage.GetById(2)
+	assert.ErrorIs(t, ErrNotFound, err)
 }

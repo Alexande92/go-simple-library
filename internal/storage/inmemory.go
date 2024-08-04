@@ -2,39 +2,44 @@ package storage
 
 import (
 	"errors"
-	"github.com/Alexande92/go-simple-library/internal/entities"
+	"github.com/Alexande92/go-simple-library/internal/entity"
 )
 
 var ErrNotFound = errors.New("book not found")
 
 type Storage struct {
-	books  map[int]entities.Book
+	books  map[int]entity.Book
 	lastId int
 }
 
 func NewStorage() *Storage {
 	return &Storage{
-		books: make(map[int]entities.Book),
+		books: make(map[int]entity.Book),
 	}
 }
 
-func (s *Storage) GetLastId() int {
-	return s.lastId
+func NewWithBooks(books ...entity.Book) *Storage {
+	db := NewStorage()
+
+	if len(books) > 0 {
+		for _, book := range books {
+			book = db.Save(book)
+		}
+	}
+
+	return db
 }
 
-func (s *Storage) AddBook(book entities.Book) entities.Book {
+func (s *Storage) Save(b entity.Book) entity.Book {
 	s.lastId++
-	book.Id = s.lastId
-	return book
-}
+	b.ID = s.lastId
 
-func (s *Storage) Save(b entities.Book) entities.Book {
-	s.books[b.Id] = b
+	s.books[b.ID] = b
 	return b
 }
 
-func (s *Storage) GetAll() []entities.Book {
-	books := make([]entities.Book, 0, len(s.books))
+func (s *Storage) GetAll() []entity.Book {
+	books := make([]entity.Book, 0, len(s.books))
 
 	for _, v := range s.books {
 		books = append(books, v)
@@ -42,19 +47,17 @@ func (s *Storage) GetAll() []entities.Book {
 	return books
 }
 
-func (s *Storage) GetById(id int) (entities.Book, error) {
+func (s *Storage) GetById(id int) (entity.Book, error) {
 	book, ok := s.books[id]
 
 	if !ok {
-		return entities.Book{}, ErrNotFound
+		return entity.Book{}, ErrNotFound
 	}
 	return book, nil
 }
 
 func (s *Storage) Delete(id int) error {
-	_, ok := s.books[id]
-
-	if !ok {
+	if _, ok := s.books[id]; !ok {
 		return ErrNotFound
 	}
 
@@ -62,13 +65,11 @@ func (s *Storage) Delete(id int) error {
 	return nil
 }
 
-func (s *Storage) Update(b entities.Book) error {
-	_, ok := s.books[b.Id]
-
-	if !ok {
+func (s *Storage) Update(b entity.Book) error {
+	if _, ok := s.books[b.ID]; !ok {
 		return ErrNotFound
 	}
 
-	s.books[b.Id] = b
+	s.books[b.ID] = b
 	return nil
 }

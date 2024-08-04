@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/Alexande92/go-simple-library/internal/entities"
+	"github.com/Alexande92/go-simple-library/internal/entity"
 	"math"
 )
 
@@ -16,7 +16,7 @@ type ErrorRes struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-func ValidateBook(book entities.Book) []ErrorRes {
+func ValidateBook(book entity.Book) []ErrorRes {
 	errList := make([]ErrorRes, 0)
 
 	err := validateLength(book.Author, 1, math.MaxInt)
@@ -35,7 +35,7 @@ func ValidateBook(book entities.Book) []ErrorRes {
 	errList = addValidationError(errList, "location", err)
 
 	if book.Edition <= 0 {
-		errList = addValidationError(errList, "edition", errors.New("edition should be a positive integer"))
+		errList = addValidationError(errList, "edition", errors.New("edition should be greater than zero"))
 	}
 
 	return errList

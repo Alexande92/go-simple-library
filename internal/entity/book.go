@@ -1,7 +1,7 @@
-package entities
+package entity
 
 type Book struct {
-	Id              int    `json:"id"`
+	ID              int    `json:"id"`
 	Author          string `json:"author"`
 	Title           string `json:"title"`
 	PublicationDate string `json:"publication-date"`

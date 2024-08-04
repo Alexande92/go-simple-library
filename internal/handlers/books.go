@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Alexande92/go-simple-library/internal/entities"
+	"github.com/Alexande92/go-simple-library/internal/entity"
 	"github.com/Alexande92/go-simple-library/internal/storage"
 	"net/http"
 	"strconv"
@@ -20,10 +20,16 @@ func NewBookHandler(db *storage.Storage) *BookHandler {
 	}
 }
 
-func sendRequestError(w http.ResponseWriter, code int, data any) {
+func sendRequestError(w http.ResponseWriter, code int, response JsonErrorResponse) {
 	w.WriteHeader(code)
-	err := json.NewEncoder(w).Encode(data)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func sendValidationError(w http.ResponseWriter, code int, response JsonValidationErrorResponse) {
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -35,35 +41,41 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 	books := h.db.GetAll()
 
 	if err := json.NewEncoder(w).Encode(books); err != nil {
-		sendRequestError(w, http.StatusInternalServerError, "Internal error: "+err.Error())
+		sendRequestError(w, http.StatusInternalServerError, JsonErrorResponse{
+			Message: "Internal server error " + err.Error(),
+		})
 		return
 	}
 }
 
 func (h *BookHandler) SaveBook(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var book entities.Book
+	var book entity.Book
 
 	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
-		sendRequestError(w, http.StatusBadRequest, "Couldn't parse json")
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Couldn't parse json",
+		})
 		return
 	}
 
 	validatedErrs := ValidateBook(book)
 
 	if len(validatedErrs) != 0 {
-		sendRequestError(w, http.StatusBadRequest, ValidationErrors{
+		sendValidationError(w, http.StatusBadRequest, JsonValidationErrorResponse{
 			Errors: validatedErrs,
 		})
 
 		return
 	}
-	book = h.db.AddBook(book)
+
 	book = h.db.Save(book)
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(book); err != nil {
-		sendRequestError(w, http.StatusInternalServerError, "Internal error: "+err.Error())
+		sendRequestError(w, http.StatusInternalServerError, JsonErrorResponse{
+			Message: "Internal server error " + err.Error(),
+		})
 		return
 	}
 }
@@ -73,14 +85,18 @@ func (h *BookHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	if err != nil {
-		sendRequestError(w, http.StatusBadRequest, "Invalid book id")
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Invalid book id",
+		})
 		return
 	}
 
 	book, err := h.db.GetById(int(bookId))
 
 	if errors.Is(err, storage.ErrNotFound) {
-		sendRequestError(w, http.StatusNotFound, "Book not found")
+		sendRequestError(w, http.StatusNotFound, JsonErrorResponse{
+			Message: "Book not found",
+		})
 		return
 	}
 
@@ -91,14 +107,16 @@ func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	if err != nil {
-		sendRequestError(w, http.StatusBadRequest, "Invalid book id")
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Invalid book id",
+		})
 		return
 	}
 
-	err = h.db.Delete(int(bookId))
-
-	if err != nil {
-		sendRequestError(w, http.StatusInternalServerError, "Internal error: "+err.Error())
+	if err = h.db.Delete(int(bookId)); err != nil {
+		sendRequestError(w, http.StatusInternalServerError, JsonErrorResponse{
+			Message: "Internal server error " + err.Error(),
+		})
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -110,34 +128,43 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	bookId, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	if err != nil {
-		sendRequestError(w, http.StatusBadRequest, "Invalid book id")
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Invalid book id",
+		})
 		return
 	}
 
-	var book entities.Book
+	var book entity.Book
 
 	if err = json.NewDecoder(r.Body).Decode(&book); err != nil {
-		sendRequestError(w, http.StatusBadRequest, "Couldn't parse json")
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Couldn't parse json",
+		})
 		return
 	}
 
 	validatedErrs := ValidateBook(book)
 
 	if len(validatedErrs) != 0 {
-		sendRequestError(w, http.StatusBadRequest, ValidationErrors{
+		sendValidationError(w, http.StatusBadRequest, JsonValidationErrorResponse{
 			Errors: validatedErrs,
 		})
 
 		return
 	}
-	book.Id = int(bookId)
+	book.ID = int(bookId)
 
-	err = h.db.Update(book)
-
-	if err != nil {
-		sendRequestError(w, http.StatusNotFound, err.Error())
+	if err = h.db.Update(book); err != nil {
+		sendRequestError(w, http.StatusNotFound, JsonErrorResponse{
+			Message: err.Error(),
+		})
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(book)
+
+	if err = json.NewEncoder(w).Encode(book); err != nil {
+		sendRequestError(w, http.StatusBadRequest, JsonErrorResponse{
+			Message: "Internal error: " + err.Error(),
+		})
+	}
 }
